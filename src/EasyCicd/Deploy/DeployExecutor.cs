@@ -25,7 +25,10 @@ public class DeployExecutor
         _logger = logger;
     }
 
-    public async Task ExecuteAsync(RepoEntry repo, DeployJob job, CancellationToken ct)
+    /// <summary>
+    /// Returns the retry DeployJob if a retry was scheduled, or null if no retry is needed.
+    /// </summary>
+    public async Task<DeployJob?> ExecuteAsync(RepoEntry repo, DeployJob job, CancellationToken ct)
     {
         // Load existing deployment row (created by webhook) or create one (for retries/recovery)
         Deployment deployment;
@@ -58,25 +61,34 @@ public class DeployExecutor
 
         var deployLogger = new DeployLogger(_logDir, repo.Name, deployment.Id);
         deployment.LogPath = deployLogger.LogPath;
+        DeployJob? retryJob = null;
 
         try
         {
             await deployLogger.LogAsync($"Starting deploy for {repo.Name} (attempt {deployment.Attempt}, commit {job.CommitSha})");
+
+            // Inject PAT into git URL for private repo authentication
+            var pat = Environment.GetEnvironmentVariable("EASYCICD_GITHUB_PAT") ?? "";
+            var authedUrl = InjectPat(repo.Url, pat);
 
             // Auto-clone if repo directory didn't exist when we started
             if (needsClone)
             {
                 await deployLogger.LogAsync($"Cloning {repo.Url} to {repo.Path}");
                 var cloneResult = await _runner.RunAsync(
-                    "git", $"clone {repo.Url} {repo.Path}", "/tmp", TimeSpan.FromMinutes(5), ct);
-                await deployLogger.LogCommandAsync($"git clone {repo.Url} {repo.Path}",
+                    "git", $"clone {authedUrl} {repo.Path}", "/tmp", TimeSpan.FromMinutes(5), ct);
+                await deployLogger.LogCommandAsync($"git clone <url> {repo.Path}",
                     cloneResult.StdOut + cloneResult.StdErr, cloneResult.ExitCode);
 
                 if (!cloneResult.IsSuccess)
                 {
-                    await FailDeployment(deployment, deployLogger, repo, job, ct);
-                    return;
+                    retryJob = await FailDeployment(deployment, deployLogger, repo, job, ct);
+                    return retryJob;
                 }
+
+                // Set remote URL with PAT for subsequent fetches
+                await _runner.RunAsync("git", $"remote set-url origin {authedUrl}",
+                    repo.Path, TimeSpan.FromSeconds(10), ct);
             }
 
             // Pick strategy based on repo type
@@ -95,23 +107,32 @@ public class DeployExecutor
             }
             else
             {
-                await FailDeployment(deployment, deployLogger, repo, job, ct);
+                retryJob = await FailDeployment(deployment, deployLogger, repo, job, ct);
             }
         }
         catch (Exception ex)
         {
             await deployLogger.LogAsync($"Deploy failed with exception: {ex.Message}");
             _logger.LogError(ex, "Deploy failed for {Repo}", repo.Name);
-            await FailDeployment(deployment, deployLogger, repo, job, ct);
+            retryJob = await FailDeployment(deployment, deployLogger, repo, job, ct);
         }
         finally
         {
             deployLogger.Dispose();
             await _db.SaveChangesAsync(ct);
         }
+
+        return retryJob;
     }
 
-    private async Task FailDeployment(
+    private static string InjectPat(string url, string pat)
+    {
+        if (string.IsNullOrEmpty(pat) || !url.StartsWith("https://"))
+            return url;
+        return url.Replace("https://", $"https://{pat}@");
+    }
+
+    private async Task<DeployJob?> FailDeployment(
         Deployment deployment, DeployLogger deployLogger,
         RepoEntry repo, DeployJob job, CancellationToken ct)
     {
@@ -134,11 +155,13 @@ public class DeployExecutor
                 CreatedAt = DateTime.UtcNow
             };
             _db.Deployments.Add(retryDeployment);
+            await _db.SaveChangesAsync(ct); // Save to get the ID
+
+            return new DeployJob(repo.Name, job.CommitSha, job.CommitMessage, retryDeployment.Id);
         }
-        else
-        {
-            await deployLogger.LogAsync("No retries remaining. Deploy failed permanently.");
-            _logger.LogError("Deploy permanently failed for {Repo} after {Attempts} attempts", repo.Name, deployment.Attempt);
-        }
+
+        await deployLogger.LogAsync("No retries remaining. Deploy failed permanently.");
+        _logger.LogError("Deploy permanently failed for {Repo} after {Attempts} attempts", repo.Name, deployment.Attempt);
+        return null;
     }
 }

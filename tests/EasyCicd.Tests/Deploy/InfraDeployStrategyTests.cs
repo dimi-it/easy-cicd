@@ -40,10 +40,11 @@ public class InfraDeployStrategyTests : IDisposable
         var result = await strategy.ExecuteAsync("/opt/apps/infra", "main", _logger, _mockRunner.Object);
 
         Assert.True(result);
-        Assert.Equal(3, callOrder.Count);
+        Assert.Equal(4, callOrder.Count);
         Assert.Contains("fetch origin main", callOrder[0]);
         Assert.Contains("reset --hard origin/main", callOrder[1]);
         Assert.Contains("up -d --build", callOrder[2]);
+        Assert.Contains("compose ps", callOrder[3]);
         Assert.DoesNotContain(callOrder, c => c.Contains("down"));
     }
 

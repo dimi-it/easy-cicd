@@ -120,13 +120,15 @@ public class DeployExecutorTests : IDisposable
             .ReturnsAsync(new CommandResult(1, "", "error"));
 
         var executor = new DeployExecutor(_db, _mockRunner.Object, _tempLogDir, NullLogger<DeployExecutor>.Instance);
-        await executor.ExecuteAsync(repo, job, CancellationToken.None);
+        var retryJob = await executor.ExecuteAsync(repo, job, CancellationToken.None);
 
         var deployments = await _db.Deployments.OrderBy(d => d.Id).ToListAsync();
         Assert.Equal(2, deployments.Count);
         Assert.Equal(DeploymentStatus.Failed, deployments[0].Status);
         Assert.Equal(DeploymentStatus.Pending, deployments[1].Status);
         Assert.Equal(2, deployments[1].Attempt);
+        Assert.NotNull(retryJob);
+        Assert.Equal(deployments[1].Id, retryJob.DeploymentId);
     }
 
     [Fact]

@@ -75,7 +75,15 @@ public class DeployWorker
                 var executor = new DeployExecutor(db, _runner, _logDir,
                     scope.ServiceProvider.GetRequiredService<ILogger<DeployExecutor>>());
 
-                await executor.ExecuteAsync(repo, job, ct);
+                var retryJob = await executor.ExecuteAsync(repo, job, ct);
+
+                // If a retry is needed, wait 10s then enqueue
+                if (retryJob is not null)
+                {
+                    _logger.LogInformation("Waiting 10s before retry for {Repo}", _repoName);
+                    await Task.Delay(TimeSpan.FromSeconds(10), ct);
+                    _queue.Enqueue(retryJob);
+                }
 
                 if (repo.Type == Configuration.RepoType.Infra)
                 {

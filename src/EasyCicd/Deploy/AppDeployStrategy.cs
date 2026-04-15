@@ -32,8 +32,13 @@ public class AppDeployStrategy : IDeployStrategy
 
         var upResult = await RunAndLogAsync(runner, logger,
             "docker", "compose up -d", repoPath, DefaultTimeout, cancellationToken);
+        if (!upResult.IsSuccess) return false;
 
-        return upResult.IsSuccess;
+        // Verify containers are running
+        var psResult = await RunAndLogAsync(runner, logger,
+            "docker", "compose ps", repoPath, DefaultTimeout, cancellationToken);
+
+        return psResult.IsSuccess;
     }
 
     private static async Task<CommandResult> RunAndLogAsync(

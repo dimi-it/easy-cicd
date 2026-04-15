@@ -81,7 +81,11 @@ public class DeployWorkerManager : BackgroundService
         foreach (var repoName in removedRepos)
         {
             _logger.LogInformation("Stopping worker for removed repo {Repo}", repoName);
-            _workers[repoName].StopAsync().ConfigureAwait(false);
+            _ = _workers[repoName].StopAsync().ContinueWith(t =>
+            {
+                if (t.IsFaulted)
+                    _logger.LogError(t.Exception, "Error stopping worker for {Repo}", repoName);
+            });
             _workers.Remove(repoName);
             _queueManager.TryRemove(repoName);
         }
@@ -101,7 +105,7 @@ public class DeployWorkerManager : BackgroundService
             _logger.LogWarning("Re-enqueuing interrupted deployment {Id} for {Repo}",
                 deployment.Id, deployment.RepoName);
             deployment.Status = DeploymentStatus.Pending;
-            var job = new DeployJob(deployment.RepoName, deployment.CommitSha, deployment.CommitMessage);
+            var job = new DeployJob(deployment.RepoName, deployment.CommitSha, deployment.CommitMessage, deployment.Id);
             _queueManager.Enqueue(deployment.RepoName, job);
         }
 

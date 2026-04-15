@@ -51,12 +51,13 @@ public class AppDeployStrategyTests : IDisposable
         var result = await strategy.ExecuteAsync("/opt/apps/my-app", "main", _logger, _mockRunner.Object);
 
         Assert.True(result);
-        Assert.Equal(5, callOrder.Count);
+        Assert.Equal(6, callOrder.Count);
         Assert.Contains("fetch origin main", callOrder[0]);
         Assert.Contains("reset --hard origin/main", callOrder[1]);
         Assert.Contains("build --no-cache", callOrder[2]);
         Assert.Contains("down --timeout 30", callOrder[3]);
         Assert.Contains("up -d", callOrder[4]);
+        Assert.Contains("compose ps", callOrder[5]);
     }
 
     [Fact]

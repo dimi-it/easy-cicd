@@ -1,0 +1,27 @@
+# Easy CI/CD Configuration
+# This file lives in the infra repo and is reloaded automatically on deploy.
+
+repos:
+  # The infra repo itself — manages shared services (DB, cache, etc.)
+  - name: infra
+    url: https://github.com/your-org/infra.git
+    path: /opt/apps/infra
+    type: infra
+    branch: main
+    retry: 1
+
+  # Example app repo
+  - name: my-web-app
+    url: https://github.com/your-org/my-web-app.git
+    path: /opt/apps/my-web-app
+    type: app
+    branch: main
+    retry: 2
+
+  # Another app repo
+  # - name: api-service
+  #   url: https://github.com/your-org/api-service.git
+  #   path: /opt/apps/api-service
+  #   type: app
+  #   branch: main
+  #   retry: 1

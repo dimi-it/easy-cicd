@@ -1,0 +1,24 @@
+[Unit]
+Description=Easy CI/CD - Lightweight Continuous Deployment
+After=network.target docker.service
+Requires=docker.service
+
+[Service]
+Type=notify
+WorkingDirectory=/opt/easy-cicd
+ExecStart=/opt/easy-cicd/EasyCicd
+Restart=always
+RestartSec=10
+
+EnvironmentFile=/etc/easy-cicd/secrets.env
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/easy-cicd /var/log/easy-cicd /opt/apps
+
+# Allow docker socket access
+SupplementaryGroups=docker
+
+[Install]
+WantedBy=multi-user.target

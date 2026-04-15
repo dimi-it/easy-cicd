@@ -89,7 +89,8 @@ This means adding a new app repo is a single step: add the entry to `easy-cicd.y
 
 - **Infra repo**: Everything that can be versioned and is non-sensitive (repo list, deploy topology, retry settings)
 - **Server-side**: Secrets and bootstrap config (PAT, webhook secret, file paths, config path)
-- When the infra repo deploys, the tool reloads `easy-cicd.yml` and picks up any added/removed/changed repos
+- When the infra repo deploys, the tool reloads `easy-cicd.yml` and picks up any added/changed repos
+- If a repo is **removed** from `easy-cicd.yml`, the tool stops watching it but leaves its running containers untouched (user must manually run `docker compose down` to clean up)
 
 ## SQLite Schema
 
@@ -116,7 +117,7 @@ CREATE TABLE deployments (
 1. Webhook arrives: row inserted with `status: pending`
 2. Worker picks it up: `status: running`, `started_at` set
 3. Deploy succeeds: `status: success`, `finished_at` set
-4. Deploy fails: if `attempt < max_retries`, a new row is inserted with `attempt + 1` as `pending`; otherwise `status: failed`, `finished_at` set
+4. Deploy fails: if `attempt <= max_retries`, a new row is inserted with `attempt + 1` as `pending`; otherwise `status: failed`, `finished_at` set
 5. On tool startup: any `running` jobs (interrupted by crash) are re-enqueued as `pending`
 
 ### Log Files

@@ -29,7 +29,7 @@ GitHub push --> POST /webhook --> validate signature --> enqueue job (SQLite + C
                                                              |
                                                    Background worker picks up
                                                              |
-                                                 git pull --> docker build --> docker up
+                                           git fetch + reset --> docker build --> docker up
                                                              |
                                                    Log result to file + SQLite
 ```
@@ -63,7 +63,7 @@ Fields:
 - **path**: Absolute path on the server where the repo is cloned
 - **type**: `app` (full down/up cycle) or `infra` (no down, just up --build)
 - **branch**: Branch to watch for pushes (default: `main`)
-- **retry**: Number of retry attempts on deploy failure
+- **retry**: Number of additional retry attempts after initial failure (e.g., `retry: 2` means up to 3 total attempts)
 
 ### Server-Side Secrets (Environment Variables)
 
@@ -74,12 +74,17 @@ EASYCICD_GITHUB_PAT=ghp_xxxxxxxxxxxx
 EASYCICD_WEBHOOK_SECRET=your-webhook-secret
 EASYCICD_DB_PATH=/var/lib/easy-cicd/deployments.db
 EASYCICD_LOG_DIR=/var/log/easy-cicd
+EASYCICD_CONFIG_PATH=/opt/apps/infra/easy-cicd.yml   # Bootstrap: where to find the config on first startup
 ```
+
+### Initial Setup
+
+Repos must be manually cloned to their configured `path` before the tool can deploy them. On first startup, the tool reads `EASYCICD_CONFIG_PATH` to locate `easy-cicd.yml`, validates that all listed repo paths exist, and logs a warning for any missing repos (skipping them until they are cloned). The setup guide will include the initial clone commands.
 
 ### Config Split Rationale
 
 - **Infra repo**: Everything that can be versioned and is non-sensitive (repo list, deploy topology, retry settings)
-- **Server-side**: Secrets only (PAT, webhook secret, file paths)
+- **Server-side**: Secrets and bootstrap config (PAT, webhook secret, file paths, config path)
 - When the infra repo deploys, the tool reloads `easy-cicd.yml` and picks up any added/removed/changed repos
 
 ## SQLite Schema

@@ -1,7 +1,9 @@
 using EasyCicd.Configuration;
 using EasyCicd.Data;
+using EasyCicd.Deploy;
 using EasyCicd.Queue;
 using EasyCicd.Webhook;
+using EasyCicd.Workers;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -11,11 +13,17 @@ var configPath = Environment.GetEnvironmentVariable("EASYCICD_CONFIG_PATH")
 var dbPath = Environment.GetEnvironmentVariable("EASYCICD_DB_PATH")
     ?? "/var/lib/easy-cicd/deployments.db";
 
+var dbDir = Path.GetDirectoryName(dbPath);
+if (!string.IsNullOrEmpty(dbDir))
+    Directory.CreateDirectory(dbDir);
+
 var configLoader = new ConfigLoader(configPath);
 configLoader.Load();
 
 builder.Services.AddSingleton(configLoader);
 builder.Services.AddSingleton<JobQueueManager>();
+builder.Services.AddSingleton<ICommandRunner, ProcessCommandRunner>();
+builder.Services.AddHostedService<DeployWorkerManager>();
 builder.Services.AddDbContext<DeploymentDbContext>(options =>
     options.UseSqlite($"Data Source={dbPath}"));
 

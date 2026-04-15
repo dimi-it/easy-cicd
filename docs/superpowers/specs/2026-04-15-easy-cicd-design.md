@@ -77,9 +77,13 @@ EASYCICD_LOG_DIR=/var/log/easy-cicd
 EASYCICD_CONFIG_PATH=/opt/apps/infra/easy-cicd.yml   # Bootstrap: where to find the config on first startup
 ```
 
-### Initial Setup
+### Auto-Clone on First Deploy
 
-Repos must be manually cloned to their configured `path` before the tool can deploy them. On first startup, the tool reads `EASYCICD_CONFIG_PATH` to locate `easy-cicd.yml`, validates that all listed repo paths exist, and logs a warning for any missing repos (skipping them until they are cloned). The setup guide will include the initial clone commands.
+When the tool loads (or reloads) `easy-cicd.yml`, it checks each repo's `path`:
+- If the directory **does not exist**: the tool runs `git clone <url> <path>` using the PAT, then proceeds with the normal deploy pipeline (build + up)
+- If it **already exists**: normal flow (`git fetch + reset`)
+
+This means adding a new app repo is a single step: add the entry to `easy-cicd.yml` and push. The tool clones, builds, and starts the new app automatically.
 
 ### Config Split Rationale
 

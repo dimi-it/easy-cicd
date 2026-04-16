@@ -21,11 +21,15 @@ dotnet test
 
 ## Prepare Your Workspace
 
-Create the local workspace directory. You don't need to clone the repos yourself -- Easy CI/CD auto-clones them on the first deploy.
+Create the local workspace directory:
 
 ```bash
 mkdir -p ~/easy-cicd-dev/apps
 ```
+
+You don't need to clone the repos yourself -- Easy CI/CD auto-clones them on the first deploy.
+
+> **Note:** In production, the config file lives inside the infra repo, so the infra repo must be cloned manually before the app starts (see [guide.md](guide.md)). In this quickstart we use a standalone config file, so auto-clone works for all repos including infra.
 
 Make sure each repo you want to deploy has a `docker-compose.yml` at its root. For a quick test, a minimal app repo with just nginx works:
 

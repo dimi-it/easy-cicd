@@ -11,17 +11,20 @@ public class DeployExecutor
     private readonly DeploymentDbContext _db;
     private readonly ICommandRunner _runner;
     private readonly string _logDir;
+    private readonly ConfigLoader _configLoader;
     private readonly ILogger<DeployExecutor> _logger;
 
     public DeployExecutor(
         DeploymentDbContext db,
         ICommandRunner runner,
         string logDir,
+        ConfigLoader configLoader,
         ILogger<DeployExecutor> logger)
     {
         _db = db;
         _runner = runner;
         _logDir = logDir;
+        _configLoader = configLoader;
         _logger = logger;
     }
 
@@ -59,7 +62,7 @@ public class DeployExecutor
         // because DeployLogger creates baseLogDir/repoName which may equal repo.Path
         var needsClone = !Directory.Exists(repo.Path);
 
-        var deployLogger = new DeployLogger(_logDir, repo.Name, deployment.Id);
+        var deployLogger = new DeployLogger(_logDir, repo.Name, deployment.Id, _configLoader.Current.Logging);
         deployment.LogPath = deployLogger.LogPath;
         DeployJob? retryJob = null;
 

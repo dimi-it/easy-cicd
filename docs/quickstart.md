@@ -19,19 +19,15 @@ dotnet build
 dotnet test
 ```
 
-## Prepare Your Repos
+## Prepare Your Workspace
 
-Create a local workspace and clone the repos you want to deploy:
+Create the local workspace directory. You don't need to clone the repos yourself -- Easy CI/CD auto-clones them on the first deploy.
 
 ```bash
 mkdir -p ~/easy-cicd-dev/apps
-cd ~/easy-cicd-dev/apps
-
-git clone https://github.com/your-org/infra.git
-git clone https://github.com/your-org/test-app.git
 ```
 
-Add a minimal `docker-compose.yml` to your `test-app` repo if it does not already have one:
+Make sure each repo you want to deploy has a `docker-compose.yml` at its root. For a quick test, a minimal app repo with just nginx works:
 
 ```yaml
 services:

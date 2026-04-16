@@ -86,4 +86,43 @@ public class ConfigValidatorTests
         var errors = ConfigValidator.ValidateEntry(entry);
         Assert.Equal(5, errors.Count);
     }
+
+    [Fact]
+    public void ValidateDuplicates_UniqueNames_ReturnsNoErrors()
+    {
+        var entries = new List<RepoEntry>
+        {
+            new() { Name = "app1" },
+            new() { Name = "app2" }
+        };
+        var errors = ConfigValidator.ValidateDuplicates(entries);
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void ValidateDuplicates_DuplicateNames_ReturnsError()
+    {
+        var entries = new List<RepoEntry>
+        {
+            new() { Name = "app1" },
+            new() { Name = "app1" }
+        };
+        var errors = ConfigValidator.ValidateDuplicates(entries);
+        Assert.Single(errors);
+        Assert.Contains("app1", errors[0]);
+    }
+
+    [Fact]
+    public void ValidateDuplicates_MultipleDuplicates_ReturnsMultipleErrors()
+    {
+        var entries = new List<RepoEntry>
+        {
+            new() { Name = "app1" },
+            new() { Name = "app1" },
+            new() { Name = "app2" },
+            new() { Name = "app2" }
+        };
+        var errors = ConfigValidator.ValidateDuplicates(entries);
+        Assert.Equal(2, errors.Count);
+    }
 }

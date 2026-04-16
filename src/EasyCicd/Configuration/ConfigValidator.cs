@@ -23,4 +23,18 @@ public static class ConfigValidator
 
         return errors;
     }
+
+    public static List<string> ValidateDuplicates(List<RepoEntry> entries)
+    {
+        var errors = new List<string>();
+        var duplicates = entries
+            .GroupBy(e => e.Name)
+            .Where(g => g.Count() > 1)
+            .Select(g => g.Key);
+
+        foreach (var name in duplicates)
+            errors.Add($"Duplicate repo name: '{name}'");
+
+        return errors;
+    }
 }

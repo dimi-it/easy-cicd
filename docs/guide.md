@@ -140,6 +140,10 @@ curl http://localhost:5000/health
 This file lives in your infra repo and lists all repos that Easy CI/CD manages:
 
 ```yaml
+logging:
+  max_total_size_mb: 100
+  max_files_per_repo: 20
+
 repos:
   - name: infra
     url: https://github.com/your-org/infra.git
@@ -164,6 +168,22 @@ repos:
 | `type`   | `app` (full down/build/up) or `infra` (up --build only, no down)            | `app`   |
 | `branch` | Branch to watch                                                              | `main`  |
 | `retry`  | Additional retry attempts after failure (e.g., `2` = 3 total attempts)       | `0`     |
+
+### Log rotation settings (optional)
+
+| Field               | Description                                          | Default |
+|---------------------|------------------------------------------------------|---------|
+| `max_total_size_mb` | Maximum total log size per repo (MB) before rotation | `100`   |
+| `max_files_per_repo`| Maximum number of log files kept per repo            | `20`    |
+
+### Config validation
+
+Easy CI/CD validates all repo entries when loading `easy-cicd.yml`:
+
+- **On startup:** Invalid entries cause the service to fail immediately with a descriptive error. Check `journalctl -u easy-cicd` for details.
+- **On hot-reload** (after infra deploy): Invalid entries are skipped with a warning. Valid entries are applied. If no entries are valid, the previous config is preserved.
+
+Validated fields: `name` (non-empty, unique), `url` (must start with `https://`), `path` (must be absolute), `branch` (non-empty), `retry` (>= 0).
 
 ### Server-side secrets
 
@@ -345,3 +365,13 @@ sudo journalctl -u easy-cicd -n 50
 ### A deploy was interrupted (server crash/restart)
 
 On startup, Easy CI/CD automatically re-enqueues any deployments that were in `running` state. They will be retried automatically.
+
+### Config reload skipped some repos
+
+After an infra deploy, check the journal for validation warnings:
+
+```bash
+sudo journalctl -u easy-cicd --since "5 minutes ago" | grep -i "skipping repo"
+```
+
+Fix the invalid entries in `easy-cicd.yml` and push again. The service continues running with the last valid config.

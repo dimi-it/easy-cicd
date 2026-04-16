@@ -72,7 +72,7 @@ public class DeployWorker
 
                 using var scope = _scopeFactory.CreateScope();
                 var db = scope.ServiceProvider.GetRequiredService<DeploymentDbContext>();
-                var executor = new DeployExecutor(db, _runner, _logDir,
+                var executor = new DeployExecutor(db, _runner, _logDir, _configLoader,
                     scope.ServiceProvider.GetRequiredService<ILogger<DeployExecutor>>());
 
                 var retryJob = await executor.ExecuteAsync(repo, job, ct);
@@ -88,7 +88,7 @@ public class DeployWorker
                 if (repo.Type == Configuration.RepoType.Infra)
                 {
                     _logger.LogInformation("Reloading config after infra deploy");
-                    _configLoader.Load();
+                    _configLoader.Reload();
                 }
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)

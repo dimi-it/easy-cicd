@@ -11,17 +11,20 @@ public class DeployExecutor
     private readonly DeploymentDbContext _db;
     private readonly ICommandRunner _runner;
     private readonly string _logDir;
+    private readonly ConfigLoader _configLoader;
     private readonly ILogger<DeployExecutor> _logger;
 
     public DeployExecutor(
         DeploymentDbContext db,
         ICommandRunner runner,
         string logDir,
+        ConfigLoader configLoader,
         ILogger<DeployExecutor> logger)
     {
         _db = db;
         _runner = runner;
         _logDir = logDir;
+        _configLoader = configLoader;
         _logger = logger;
     }
 
@@ -59,7 +62,7 @@ public class DeployExecutor
         // because DeployLogger creates baseLogDir/repoName which may equal repo.Path
         var needsClone = !Directory.Exists(repo.Path);
 
-        var deployLogger = new DeployLogger(_logDir, repo.Name, deployment.Id);
+        var deployLogger = new DeployLogger(_logDir, repo.Name, deployment.Id, _configLoader.Current.Logging);
         deployment.LogPath = deployLogger.LogPath;
         DeployJob? retryJob = null;
 
@@ -82,6 +85,9 @@ public class DeployExecutor
 
                 if (!cloneResult.IsSuccess)
                 {
+                    if (Directory.Exists(repo.Path))
+                        Directory.Delete(repo.Path, recursive: true);
+
                     retryJob = await FailDeployment(deployment, deployLogger, repo, job, ct);
                     return retryJob;
                 }
@@ -125,11 +131,14 @@ public class DeployExecutor
         return retryJob;
     }
 
-    private static string InjectPat(string url, string pat)
+    // Change from private to internal so tests can access it (project has InternalsVisibleTo)
+    internal static string InjectPat(string url, string pat)
     {
         if (string.IsNullOrEmpty(pat) || !url.StartsWith("https://"))
             return url;
-        return url.Replace("https://", $"https://{pat}@");
+        var uri = new UriBuilder(url);
+        uri.UserName = pat;
+        return uri.Uri.ToString();
     }
 
     private async Task<DeployJob?> FailDeployment(

@@ -130,6 +130,119 @@ public class ConfigLoaderTests : IDisposable
     }
 
     [Fact]
+    public void Reload_ValidConfig_ReturnsUpdatedConfig()
+    {
+        var yamlPath = Path.Combine(_tempDir, "easy-cicd.yml");
+        File.WriteAllText(yamlPath, """
+            repos:
+              - name: app1
+                url: https://github.com/org/app1.git
+                path: /opt/apps/app1
+                type: app
+            """);
+
+        var loader = new ConfigLoader(yamlPath, NullLogger<ConfigLoader>.Instance);
+        loader.Load();
+
+        File.WriteAllText(yamlPath, """
+            repos:
+              - name: app1
+                url: https://github.com/org/app1.git
+                path: /opt/apps/app1
+                type: app
+              - name: app2
+                url: https://github.com/org/app2.git
+                path: /opt/apps/app2
+                type: app
+            """);
+
+        var config = loader.Reload();
+        Assert.Equal(2, config.Repos.Count);
+    }
+
+    [Fact]
+    public void Reload_InvalidEntries_SkipsThemAndKeepsValid()
+    {
+        var yamlPath = Path.Combine(_tempDir, "easy-cicd.yml");
+        File.WriteAllText(yamlPath, """
+            repos:
+              - name: app1
+                url: https://github.com/org/app1.git
+                path: /opt/apps/app1
+                type: app
+            """);
+
+        var loader = new ConfigLoader(yamlPath, NullLogger<ConfigLoader>.Instance);
+        loader.Load();
+
+        File.WriteAllText(yamlPath, """
+            repos:
+              - name: app1
+                url: https://github.com/org/app1.git
+                path: /opt/apps/app1
+                type: app
+              - name: bad
+                url: http://not-https.com
+                path: relative
+                type: app
+            """);
+
+        var config = loader.Reload();
+        Assert.Single(config.Repos);
+        Assert.Equal("app1", config.Repos[0].Name);
+    }
+
+    [Fact]
+    public void Reload_AllInvalid_KeepsPreviousConfig()
+    {
+        var yamlPath = Path.Combine(_tempDir, "easy-cicd.yml");
+        File.WriteAllText(yamlPath, """
+            repos:
+              - name: app1
+                url: https://github.com/org/app1.git
+                path: /opt/apps/app1
+                type: app
+            """);
+
+        var loader = new ConfigLoader(yamlPath, NullLogger<ConfigLoader>.Instance);
+        loader.Load();
+
+        File.WriteAllText(yamlPath, """
+            repos:
+              - name: ""
+                url: http://bad
+                path: relative
+                type: app
+            """);
+
+        var config = loader.Reload();
+        Assert.Single(config.Repos);
+        Assert.Equal("app1", config.Repos[0].Name);
+    }
+
+    [Fact]
+    public void Reload_FileMissing_KeepsPreviousConfig()
+    {
+        var yamlPath = Path.Combine(_tempDir, "easy-cicd.yml");
+        File.WriteAllText(yamlPath, """
+            repos:
+              - name: app1
+                url: https://github.com/org/app1.git
+                path: /opt/apps/app1
+                type: app
+            """);
+
+        var loader = new ConfigLoader(yamlPath, NullLogger<ConfigLoader>.Instance);
+        loader.Load();
+
+        File.Delete(yamlPath);
+
+        var config = loader.Reload();
+        Assert.Single(config.Repos);
+        Assert.Equal("app1", config.Repos[0].Name);
+    }
+
+    [Fact]
     public void Load_DuplicateNames_ThrowsOnStartup()
     {
         var yamlPath = Path.Combine(_tempDir, "easy-cicd.yml");

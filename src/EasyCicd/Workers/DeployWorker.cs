@@ -88,7 +88,7 @@ public class DeployWorker
                 if (repo.Type == Configuration.RepoType.Infra)
                 {
                     _logger.LogInformation("Reloading config after infra deploy");
-                    _configLoader.Load();
+                    _configLoader.Reload();
                 }
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)

@@ -89,6 +89,22 @@ public class ConfigLoader
         }
     }
 
+    public EasyCicdConfig Reload()
+    {
+        try
+        {
+            return Load(isReload: true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Config reload failed, keeping previous config");
+            lock (_lock)
+            {
+                return _currentConfig;
+            }
+        }
+    }
+
     public EasyCicdConfig Current
     {
         get

@@ -40,14 +40,14 @@ On your server, you need:
 - **Linux** (tested on Ubuntu 22.04+, Debian 12+)
 - **Docker** (with Docker Compose v2)
 - **Git** (2.30+)
-- **.NET 8 Runtime** (or publish as self-contained to skip this)
+- **.NET 10 Runtime** (or publish as self-contained to skip this)
 
-Install .NET 8 runtime:
+Install .NET 10 runtime:
 
 ```bash
 # Ubuntu/Debian
 wget https://dot.net/v1/dotnet-install.sh
-bash dotnet-install.sh --channel 8.0 --runtime aspnetcore
+bash dotnet-install.sh --channel 10.0 --runtime aspnetcore
 ```
 
 ---

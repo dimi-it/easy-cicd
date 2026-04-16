@@ -1216,10 +1216,10 @@ Add a field and initialize in the constructor:
 ```csharp
 private readonly ConfigLoader _configLoader;
 
-// In constructor, after _tempLogDir:
+// In constructor, after _tempLogDir assignment, BEFORE any file operations:
+Directory.CreateDirectory(_tempLogDir);
 var configPath = Path.Combine(_tempLogDir, "easy-cicd.yml");
 File.WriteAllText(configPath, "repos: []");
-Directory.CreateDirectory(_tempLogDir);
 _configLoader = new ConfigLoader(configPath, NullLogger<ConfigLoader>.Instance);
 _configLoader.Load();
 ```
@@ -1265,9 +1265,11 @@ dotnet tool install --global dotnet-ef || dotnet tool update --global dotnet-ef
 
 - [ ] **Step 2: Generate initial migration**
 
-Run from project root:
+The `dotnet ef` tool runs Program.cs at design time, which requires `EASYCICD_CONFIG_PATH` to be set and point to a valid config file. Create a temporary config and set the env var:
+
 ```bash
-dotnet ef migrations add InitialCreate --project src/EasyCicd/EasyCicd.csproj
+mkdir -p /tmp/ef-design && echo "repos: []" > /tmp/ef-design/easy-cicd.yml
+EASYCICD_CONFIG_PATH=/tmp/ef-design/easy-cicd.yml dotnet ef migrations add InitialCreate --project src/EasyCicd/EasyCicd.csproj
 ```
 
 Expected: Creates `src/EasyCicd/Migrations/` directory with three files:

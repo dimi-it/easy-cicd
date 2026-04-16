@@ -60,6 +60,14 @@ public class ConfigLoader
             {
                 foreach (var error in dupErrors)
                     _logger.LogWarning("{Error}", error);
+
+                // Remove all entries with duplicate names
+                var duplicateNames = validEntries
+                    .GroupBy(e => e.Name)
+                    .Where(g => g.Count() > 1)
+                    .Select(g => g.Key)
+                    .ToHashSet();
+                validEntries.RemoveAll(e => duplicateNames.Contains(e.Name));
             }
             else
             {

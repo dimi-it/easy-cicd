@@ -50,15 +50,16 @@ public class DeployLogger : IDisposable
             .OrderBy(f => Path.GetFileName(f))
             .ToList();
 
-        // Count cap: delete oldest files exceeding max count
-        while (files.Count > _loggingConfig!.MaxFilesPerRepo)
+        // Count cap: delete oldest files exceeding max count (minimum 1 to keep current log)
+        var maxFiles = Math.Max(1, _loggingConfig!.MaxFilesPerRepo);
+        while (files.Count > maxFiles)
         {
             File.Delete(files[0]);
             files.RemoveAt(0);
         }
 
         // Size cap: delete oldest files until total size is under limit
-        var maxBytes = (long)_loggingConfig.MaxTotalSizeMb * 1024 * 1024;
+        var maxBytes = (long)Math.Max(1, _loggingConfig.MaxTotalSizeMb) * 1024 * 1024;
         var totalSize = files.Sum(f => new FileInfo(f).Length);
         while (totalSize > maxBytes && files.Count > 1)
         {

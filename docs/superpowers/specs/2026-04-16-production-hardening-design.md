@@ -13,26 +13,36 @@
 
 ### Design
 
-New static class `ConfigValidator` with method:
+New static class `ConfigValidator` with two methods:
 
 ```csharp
-public static List<string> Validate(EasyCicdConfig config)
+// Validates a single repo entry, returns list of error messages (empty = valid)
+public static List<string> ValidateEntry(RepoEntry entry)
+
+// Checks for cross-entry issues (e.g., duplicate names), returns list of error messages
+public static List<string> ValidateDuplicates(List<RepoEntry> entries)
 ```
 
-**Validation rules:**
+**Validation rules (per entry):**
 
 | Field    | Rule                                         |
 |----------|----------------------------------------------|
-| `Name`   | Non-empty, unique across all repo entries    |
+| `Name`   | Non-empty                                    |
 | `Url`    | Must start with `https://`                   |
 | `Path`   | Must be an absolute (rooted) path            |
 | `Branch` | Must be non-empty                            |
 | `Retry`  | Must be >= 0                                 |
 
+**Cross-entry rules:**
+
+| Rule                                              |
+|---------------------------------------------------|
+| `Name` must be unique across all repo entries     |
+
 **Behavior by context:**
 
-- **Startup (`Load()`):** Validation errors throw an `InvalidOperationException` with all error messages joined. The app refuses to start.
-- **Hot-reload (`Reload()`):** Validation errors are logged as warnings. Invalid entries are excluded from the resulting config. If all entries are invalid or the file is missing/unparseable, the previous config is preserved.
+- **Startup (`Load()`):** All entries are validated individually, then cross-entry checks run. Any errors throw an `InvalidOperationException` with all error messages joined. The app refuses to start.
+- **Hot-reload (`Reload()`):** Each entry is validated individually. Invalid entries are excluded with a warning log per entry. Cross-entry checks run on the remaining valid entries. If all entries are invalid or the file is missing/unparseable, the previous config is preserved.
 
 ### Files
 
@@ -100,7 +110,22 @@ After an infra repo deploy, `DeployWorker` calls `_configLoader.Load()`. If the 
 
 ### Design
 
-Add an `ILogger<ConfigLoader>` constructor parameter to `ConfigLoader` (injected via DI in `Program.cs`).
+Add an `ILogger<ConfigLoader>` constructor parameter to `ConfigLoader`.
+
+**DI registration change in `Program.cs`:** Currently `ConfigLoader` is instantiated manually before `builder.Build()`. Since DI (and loggers) aren't available yet at that point, the registration changes to a factory pattern:
+
+```csharp
+builder.Services.AddSingleton(sp =>
+    new ConfigLoader(configPath, sp.GetRequiredService<ILogger<ConfigLoader>>()));
+
+// ... builder.Build() ...
+
+// Load config after DI is available (fail-fast on startup)
+var configLoader = app.Services.GetRequiredService<ConfigLoader>();
+configLoader.Load();
+```
+
+`Load()` is moved to after `app = builder.Build()` but before `app.Run()`, so it still fails fast on startup before any hosted services start.
 
 Add a `Reload()` method:
 
@@ -124,13 +149,14 @@ public EasyCicdConfig Reload()
 
 `Load()` gains an `isReload` parameter (default `false`):
 - `isReload = false` (startup): validation errors throw.
-- `isReload = true` (hot-reload): validation errors log warnings, invalid entries are skipped, valid entries are kept. If no valid entries remain, the old config is preserved entirely.
+- `isReload = true` (hot-reload): each entry is validated individually. Invalid entries are logged as warnings and excluded. Valid entries are kept. If no valid entries remain, the old config is preserved entirely.
 
 `DeployWorker` calls `Reload()` instead of `Load()` after infra deploys.
 
 ### Files
 
-- Modified: `Configuration/ConfigLoader.cs` (add `Reload()`, add `isReload` param to `Load()`)
+- Modified: `Configuration/ConfigLoader.cs` (add `Reload()`, add `isReload` param to `Load()`, add logger)
+- Modified: `Program.cs` (factory DI registration, move `Load()` after build)
 - Modified: `Workers/DeployWorker.cs` (call `Reload()` instead of `Load()`)
 
 ---
@@ -177,8 +203,8 @@ Deployment logs accumulate without bound. Over time this can exhaust disk space.
 ```csharp
 public class LoggingConfig
 {
-    [YamlMember(Alias = "max_file_size_mb")]
-    public int MaxFileSizeMb { get; set; } = 10;
+    [YamlMember(Alias = "max_total_size_mb")]
+    public int MaxTotalSizeMb { get; set; } = 100;
 
     [YamlMember(Alias = "max_files_per_repo")]
     public int MaxFilesPerRepo { get; set; } = 20;
@@ -196,7 +222,7 @@ public LoggingConfig Logging { get; set; } = new();
 
 ```yaml
 logging:
-  max_file_size_mb: 10
+  max_total_size_mb: 100
   max_files_per_repo: 20
 
 repos:
@@ -209,8 +235,9 @@ repos:
 - `DeployLogger` accepts a `LoggingConfig` parameter.
 - On `Dispose()`, after closing the writer, scan the repo's log directory.
 - Sort files by name (which includes timestamp, so alphabetical = chronological).
-- If file count exceeds `MaxFilesPerRepo`, delete the oldest files until at the limit.
-- Files larger than `MaxFileSizeMb` are not truncated mid-write — they're kept but counted toward the limit. The size threshold serves as documentation of expected file sizes and can be used for monitoring in the future.
+- **Count cap:** If file count exceeds `MaxFilesPerRepo`, delete the oldest files until at the limit.
+- **Size cap:** After applying the count cap, sum the remaining files' sizes. If the total exceeds `MaxTotalSizeMb`, delete the oldest files until total size is under the limit.
+- Both caps run in sequence: count first, then size. This ensures both constraints are satisfied.
 
 **Note:** Rotation runs synchronously in `Dispose()`. This is acceptable because it's a quick directory scan + delete at the end of each deployment, not a hot path.
 
@@ -247,7 +274,7 @@ Update `docs/guide.md`:
 | `Deploy/DeployExecutor.cs` | Modified | `UriBuilder` PAT injection, partial clone cleanup, pass `LoggingConfig` |
 | `Logging/DeployLogger.cs` | Modified | Accept `LoggingConfig`, rotation on `Dispose()` |
 | `Data/DeploymentDbContext.cs` | Unchanged | Source for initial migration generation |
-| `Program.cs` | Modified | `Migrate()` instead of `EnsureCreated()` |
+| `Program.cs` | Modified | Factory DI for ConfigLoader, move `Load()` after build, `Migrate()` instead of `EnsureCreated()` |
 | `EasyCicd.csproj` | Modified | Add `Microsoft.EntityFrameworkCore.Design` |
 | `Migrations/` | New | Initial EF Core migration |
 | `easy-cicd.example.yml` | Modified | Add `logging` section |

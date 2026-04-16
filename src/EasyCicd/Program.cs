@@ -34,7 +34,7 @@ configLoader.Load();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<DeploymentDbContext>();
-    db.Database.EnsureCreated();
+    db.Database.Migrate();
 }
 
 app.MapGet("/health", () => Results.Ok("healthy"));

@@ -192,4 +192,35 @@ public class DeployExecutorTests : IDisposable
         Assert.Contains(":8443", result);
     }
 
+    [Fact]
+    public async Task ExecuteAsync_FailedClone_CleansUpPartialDirectory()
+    {
+        var repo = MakeRepoEntry(retry: 0);
+        // Do NOT create repo.Path — simulate first deploy
+        var job = new DeployJob("my-app", "abc123", "initial");
+
+        // First call (clone) fails, rest succeed
+        var callCount = 0;
+        _mockRunner
+            .Setup(r => r.RunAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() =>
+            {
+                callCount++;
+                if (callCount == 1)
+                {
+                    // Simulate git clone creating a partial directory then failing
+                    Directory.CreateDirectory(repo.Path);
+                    return new CommandResult(128, "", "fatal: repository not found");
+                }
+                return new CommandResult(0, "ok", "");
+            });
+
+        var executor = new DeployExecutor(_db, _mockRunner.Object, _tempLogDir, NullLogger<DeployExecutor>.Instance);
+        await executor.ExecuteAsync(repo, job, CancellationToken.None);
+
+        // The partial directory should have been cleaned up
+        Assert.False(Directory.Exists(repo.Path));
+    }
 }

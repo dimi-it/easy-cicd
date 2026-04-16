@@ -82,6 +82,9 @@ public class DeployExecutor
 
                 if (!cloneResult.IsSuccess)
                 {
+                    if (Directory.Exists(repo.Path))
+                        Directory.Delete(repo.Path, recursive: true);
+
                     retryJob = await FailDeployment(deployment, deployLogger, repo, job, ct);
                     return retryJob;
                 }

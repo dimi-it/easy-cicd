@@ -100,10 +100,12 @@ After an infra repo deploy, `DeployWorker` calls `_configLoader.Load()`. If the 
 
 ### Design
 
-Add a `Reload()` method to `ConfigLoader`:
+Add an `ILogger<ConfigLoader>` constructor parameter to `ConfigLoader` (injected via DI in `Program.cs`).
+
+Add a `Reload()` method:
 
 ```csharp
-public EasyCicdConfig Reload(ILogger logger)
+public EasyCicdConfig Reload()
 {
     try
     {
@@ -111,7 +113,7 @@ public EasyCicdConfig Reload(ILogger logger)
     }
     catch (Exception ex)
     {
-        logger.LogError(ex, "Config reload failed, keeping previous config");
+        _logger.LogError(ex, "Config reload failed, keeping previous config");
         lock (_lock)
         {
             return _currentConfig;

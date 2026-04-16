@@ -17,7 +17,7 @@ public class ConfigLoader
         _configPath = configPath;
         _logger = logger;
         _deserializer = new DeserializerBuilder()
-            .WithNamingConvention(CamelCaseNamingConvention.Instance)
+            .WithNamingConvention(UnderscoredNamingConvention.Instance)
             .Build();
     }
 

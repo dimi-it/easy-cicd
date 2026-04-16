@@ -125,11 +125,14 @@ public class DeployExecutor
         return retryJob;
     }
 
-    private static string InjectPat(string url, string pat)
+    // Change from private to internal so tests can access it (project has InternalsVisibleTo)
+    internal static string InjectPat(string url, string pat)
     {
         if (string.IsNullOrEmpty(pat) || !url.StartsWith("https://"))
             return url;
-        return url.Replace("https://", $"https://{pat}@");
+        var uri = new UriBuilder(url);
+        uri.UserName = pat;
+        return uri.Uri.ToString();
     }
 
     private async Task<DeployJob?> FailDeployment(

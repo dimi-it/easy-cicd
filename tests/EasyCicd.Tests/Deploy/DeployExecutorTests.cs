@@ -152,4 +152,44 @@ public class DeployExecutorTests : IDisposable
 
         Assert.Contains(callOrder, c => c.Contains("clone"));
     }
+
+    [Fact]
+    public void InjectPat_HttpsUrl_InjectsViaUriBuilder()
+    {
+        var result = DeployExecutor.InjectPat("https://github.com/org/repo.git", "ghp_token123");
+        Assert.Contains("ghp_token123@", result);
+        Assert.StartsWith("https://", result);
+        Assert.Contains("github.com", result);
+        Assert.Contains("/org/repo.git", result);
+    }
+
+    [Fact]
+    public void InjectPat_EmptyPat_ReturnsOriginalUrl()
+    {
+        var result = DeployExecutor.InjectPat("https://github.com/org/repo.git", "");
+        Assert.Equal("https://github.com/org/repo.git", result);
+    }
+
+    [Fact]
+    public void InjectPat_NullPat_ReturnsOriginalUrl()
+    {
+        var result = DeployExecutor.InjectPat("https://github.com/org/repo.git", null!);
+        Assert.Equal("https://github.com/org/repo.git", result);
+    }
+
+    [Fact]
+    public void InjectPat_HttpUrl_ReturnsOriginalUrl()
+    {
+        var result = DeployExecutor.InjectPat("http://github.com/org/repo.git", "ghp_token");
+        Assert.Equal("http://github.com/org/repo.git", result);
+    }
+
+    [Fact]
+    public void InjectPat_UrlWithPort_InjectsCorrectly()
+    {
+        var result = DeployExecutor.InjectPat("https://github.com:8443/org/repo.git", "ghp_token");
+        Assert.Contains("ghp_token@", result);
+        Assert.Contains(":8443", result);
+    }
+
 }

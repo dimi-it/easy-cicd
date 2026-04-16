@@ -33,4 +33,16 @@ public class EasyCicdConfig
 {
     [YamlMember(Alias = "repos")]
     public List<RepoEntry> Repos { get; set; } = new();
+
+    [YamlMember(Alias = "logging")]
+    public LoggingConfig Logging { get; set; } = new();
+}
+
+public class LoggingConfig
+{
+    [YamlMember(Alias = "max_total_size_mb")]
+    public int MaxTotalSizeMb { get; set; } = 100;
+
+    [YamlMember(Alias = "max_files_per_repo")]
+    public int MaxFilesPerRepo { get; set; } = 20;
 }

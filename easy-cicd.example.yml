@@ -1,6 +1,11 @@
 # Easy CI/CD Configuration
 # This file lives in the infra repo and is reloaded automatically on deploy.
 
+# Log rotation settings (optional — defaults shown)
+logging:
+  max_total_size_mb: 100
+  max_files_per_repo: 20
+
 repos:
   # The infra repo itself — manages shared services (DB, cache, etc.)
   - name: infra
